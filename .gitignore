@@ -3,6 +3,10 @@
 ## Build generated
 build/
 DerivedData/
+.idea/
+.gradle/
+
+android/local.properties
 
 ## Various settings
 *.pbxuser

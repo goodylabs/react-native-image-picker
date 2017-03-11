@@ -126,6 +126,12 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
       titles.add(options.getString("chooseFromLibraryButtonTitle"));
       actions.add("library");
     }
+    if (options.hasKey("chooseFromVideoLibraryButtonTitle")
+            && options.getString("chooseFromVideoLibraryButtonTitle") != null
+            && !options.getString("chooseFromVideoLibraryButtonTitle").isEmpty()) {
+      titles.add(options.getString("chooseFromVideoLibraryButtonTitle"));
+      actions.add("library_video");
+    }
     if (options.hasKey("customButtons")) {
       ReadableArray customButtons = options.getArray("customButtons");
       for (int i = 0; i < customButtons.size(); i++) {
@@ -159,6 +165,9 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
             break;
           case "library":
             launchImageLibrary(options, callback);
+            break;
+          case "library_video":
+            launchVideoLibrary(options, callback);
             break;
           case "cancel":
             response.putBoolean("didCancel", true);
@@ -279,6 +288,46 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
       libraryIntent = new Intent(Intent.ACTION_PICK,
       MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
     }
+
+    if (libraryIntent.resolveActivity(mReactContext.getPackageManager()) == null) {
+      response.putString("error", "Cannot launch photo library");
+      callback.invoke(response);
+      return;
+    }
+
+    mCallback = callback;
+
+    try {
+      currentActivity.startActivityForResult(libraryIntent, requestCode);
+    } catch (ActivityNotFoundException e) {
+      e.printStackTrace();
+      response.putString("error", "Cannot launch photo library");
+      callback.invoke(response);
+    }
+  }
+
+  @ReactMethod
+  public void launchVideoLibrary(final ReadableMap options, final Callback callback) {
+    response = Arguments.createMap();
+
+    Activity currentActivity = getCurrentActivity();
+    if (currentActivity == null) {
+      response.putString("error", "can't find current Activity");
+      callback.invoke(response);
+      return;
+    }
+
+    if (!permissionsCheck(currentActivity)) {
+      return;
+    }
+
+    parseOptions(options);
+
+    int requestCode;
+    Intent libraryIntent;
+    requestCode = REQUEST_LAUNCH_VIDEO_LIBRARY;
+    libraryIntent = new Intent(Intent.ACTION_PICK);
+    libraryIntent.setType("video/*");
 
     if (libraryIntent.resolveActivity(mReactContext.getPackageManager()) == null) {
       response.putString("error", "Cannot launch photo library");
