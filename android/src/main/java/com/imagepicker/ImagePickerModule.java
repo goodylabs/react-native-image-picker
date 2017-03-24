@@ -120,6 +120,13 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
       titles.add(options.getString("takePhotoButtonTitle"));
       actions.add("photo");
     }
+    if (options.hasKey("recVideoButtonTitle")
+            && options.getString("recVideoButtonTitle") != null
+            && !options.getString("recVideoButtonTitle").isEmpty()
+            && isCameraAvailable()) {
+      titles.add(options.getString("recVideoButtonTitle"));
+      actions.add("rec");
+    }
     if (options.hasKey("chooseFromLibraryButtonTitle")
             && options.getString("chooseFromLibraryButtonTitle") != null
             && !options.getString("chooseFromLibraryButtonTitle").isEmpty()) {
@@ -163,6 +170,9 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
           case "photo":
             launchCamera(options, callback);
             break;
+          case "rec":
+            launchVideoCamera(options, callback);
+            break;
           case "library":
             launchImageLibrary(options, callback);
             break;
@@ -196,6 +206,54 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
     });
     dialog.getWindow().setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
     dialog.show();
+  }
+
+  @ReactMethod
+  public void launchVideoCamera(final ReadableMap options, final Callback callback) {
+    response = Arguments.createMap();
+
+    if (!isCameraAvailable()) {
+      response.putString("error", "Camera not available");
+      callback.invoke(response);
+      return;
+    }
+
+    Activity currentActivity = getCurrentActivity();
+    if (currentActivity == null) {
+      response.putString("error", "can't find current Activity");
+      callback.invoke(response);
+      return;
+    }
+
+    if (!permissionsCheck(currentActivity)) {
+      return;
+    }
+
+    parseOptions(options);
+
+    int requestCode = REQUEST_LAUNCH_VIDEO_CAPTURE;
+    Intent cameraIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+    cameraIntent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, videoQuality);
+    if (videoDurationLimit > 0) {
+      cameraIntent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, videoDurationLimit);
+    }
+
+    if (cameraIntent.resolveActivity(mReactContext.getPackageManager()) == null) {
+      response.putString("error", "Cannot launch camera");
+      callback.invoke(response);
+      return;
+    }
+
+    mCallback = callback;
+
+    try {
+      currentActivity.startActivityForResult(cameraIntent, requestCode);
+    } catch (ActivityNotFoundException e) {
+      e.printStackTrace();
+      response = Arguments.createMap();
+      response.putString("error", "Cannot launch camera");
+      callback.invoke(response);
+    }
   }
 
   // NOTE: Currently not reentrant / doesn't support concurrent requests
@@ -286,7 +344,7 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
     } else {
       requestCode = REQUEST_LAUNCH_IMAGE_LIBRARY;
       libraryIntent = new Intent(Intent.ACTION_PICK,
-      MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+              MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
     }
 
     if (libraryIntent.resolveActivity(mReactContext.getPackageManager()) == null) {
@@ -483,11 +541,11 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
       if (resized == null) {
         response.putString("error", "Can't resize the image");
       } else {
-         realPath = resized.getAbsolutePath();
-         uri = Uri.fromFile(resized);
-         BitmapFactory.decodeFile(realPath, options);
-         response.putInt("width", options.outWidth);
-         response.putInt("height", options.outHeight);
+        realPath = resized.getAbsolutePath();
+        uri = Uri.fromFile(resized);
+        BitmapFactory.decodeFile(realPath, options);
+        response.putInt("width", options.outWidth);
+        response.putInt("height", options.outHeight);
       }
     }
 
@@ -556,7 +614,7 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
 
   private boolean isCameraAvailable() {
     return mReactContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)
-      || mReactContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
+            || mReactContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
   }
 
   private String getRealPathFromURI(Uri uri) {
@@ -642,7 +700,7 @@ public class ImagePickerModule extends ReactContextBaseJavaModule {
     Bitmap photo = BitmapFactory.decodeFile(realPath, options);
 
     if (photo == null) {
-        return null;
+      return null;
     }
 
     Bitmap scaledphoto = null;
